@@ -1,19 +1,21 @@
-import { dev } from '$app/environment';
-import { fail } from '@sveltejs/kit';
-import bcrypt from "bcrypt";
+import { fail, redirect } from '@sveltejs/kit';
+import bcrypt from 'bcrypt';
 const users = [
 	{
 		email: 'yan@gmail.com',
-		password: '123456'
+		password: '$2b$10$SJag1WLcFRQb.FR5TysBJeu0t7bnHiYmTaCBG5w3FtmzxtoX0.3Yq'
 	},
 	{
 		email: 'hom@gmail.com',
-		password: '124568'
+		password: '$2b$10$xEZMzGNoRCa8CmHMM4ApJ.vjGd/yjcHd0/aPIUrDJoBzqCaJD3IfG'
 	}
 ];
 let logedUser = {};
 /** @type {import('./$types').PageServerLoad} */
 export async function load() {
+	if (Object.values(logedUser).length) {
+		redirect(302, '/');
+	}
 	return { users, user: logedUser };
 }
 
@@ -32,24 +34,34 @@ export const actions = {
 			errorsObj.email = 'Email is not valid!';
 		}
 
-		const isPasswordCompare = bcrypt.compareSync(formData.password, findedUser?.password);
-		if (findedUser !== undefined && isPasswordCompare) {
-			console.log('LogUser');
-			logedUser = findedUser;
-		} else {
+		if (findedUser === undefined) {
+			errorsObj.password = 'User is not register!';
+		}
+
+		if (!formData.password.length) {
 			errorsObj.password = 'Password is not correct!';
 		}
 
 		if (Object.values(errorsObj).length) {
 			return fail(400, errorsObj);
 		}
-		return logedUser;
+
+		const isPasswordCompare = bcrypt.compareSync(formData.password, findedUser?.password);
+		if (isPasswordCompare) {
+			logedUser = findedUser;
+		}
+
+		if (Object.values(errorsObj).length) {
+			return fail(400, errorsObj);
+		}
+
+		return redirect(302, '/');
 	},
 	register: async (event) => {
 		const formData = Object.fromEntries(await event.request.formData());
 		const findedUser = users.find((user) => user.email === formData.email);
 		if (findedUser !== undefined) {
-			return fail(400, { message: 'User is now register!' });
+			return fail(400, { email: 'User is now register!' });
 		}
 		const errorsObj = {};
 		if (!validateEmail(formData.email)) {
@@ -79,5 +91,6 @@ export const actions = {
 				logedUser = newUser;
 			}
 		}
+		return logedUser;
 	}
 };
